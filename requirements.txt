@@ -1,20 +1,28 @@
-# Core dependencies
-faiss-cpu==1.13.2
-sentence-transformers==2.2.2
-numpy==1.25.0
-pymongo==4.6.1
-huggingface-hub>=0.19.0
+# Streamlit & Web Interface
+streamlit==1.28.1
 
+# MongoDB
+pymongo==4.6.1
+
+# Qdrant
 qdrant-client==1.16.2
 
-# Environment management
-python-dotenv==1.0.0
+# Google Drive Integration
+google-auth-oauthlib==0.4.6
+google-api-python-client==2.49.0
+google-auth==2.11.0
 
-# Web interface & user management
-streamlit==1.28.1
+# Sentence Transformers & Text Embeddings
+sentence-transformers==2.2.2
+
+# Encryption & Password Hashing
 bcrypt==4.1.1
+
+# PDF Processing
+pdfplumber==0.10.3
+
+# Data Manipulation
 pandas>=2.0.0
 
-# PDF processing
-PyPDF2==3.0.1
-pdfplumber==0.10.3
+# Environment Management
+python-dotenv==1.0.0
