@@ -8,3 +8,4 @@ numpy==1.23.0
 faiss-cpu==1.13.2
 sentence-transformers==2.2.2
 qdrant-client==1.16.2
+setuptools==65.5.0 
