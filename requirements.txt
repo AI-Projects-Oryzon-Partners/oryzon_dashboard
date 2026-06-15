@@ -14,6 +14,7 @@ google-auth==2.11.0
 
 # Sentence Transformers & Text Embeddings
 sentence-transformers==2.2.2
+huggingface-hub
 
 # Encryption & Password Hashing
 bcrypt==4.1.1
