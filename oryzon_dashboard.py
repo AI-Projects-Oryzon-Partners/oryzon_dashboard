@@ -8,7 +8,7 @@ Tableau de bord unifié pour la gestion de :
 =============================================================================
 """
 
-import os
+import os 
 import streamlit as st
 import warnings
 from pathlib import Path
@@ -25,15 +25,14 @@ import pandas as pd
 import json
 import push_to_google_drive
 
-# Support PDF
+
 try:
-    import pdfplumber
+    import pdfplumber 
     PDF_SUPPORT = True
 except ImportError:
     PDF_SUPPORT = False
 
-# Charger les variables d'environnement
-load_dotenv()
+load_dotenv() 
 
 # =============================================================================
 # CONFIGURATION
@@ -47,8 +46,13 @@ MONGO_COLLECTION = os.getenv("COLLECTION_NAME", "users")
 # Configuration Qdrant
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-QDRANT_COLLECTION = "amazon_rag"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Collections disponibles pour l'upload
+QDRANT_COLLECTIONS = {
+    "amazon_seller_docs": "🛒 Amazon Seller Docs",
+    "wiki_agency_docs":   "📖 Wiki Agency Docs",
+}
 
 # Constantes de validation
 MIN_USERNAME_LENGTH = 3
@@ -357,19 +361,19 @@ def get_embedding_model():
         st.error(f"Erreur lors du chargement du modèle d'embedding : {e}")
         return None
 
-def get_qdrant_stats():
+def get_qdrant_stats(collection_name: str):
     """Obtenir les statistiques de la collection Qdrant."""
     try:
         client, error = get_qdrant_client()
         if error:
             return None, error
         
-        info = client.get_collection(QDRANT_COLLECTION)
+        info = client.get_collection(collection_name)
         return info, None
     except Exception as e:
         return None, str(e)
 
-def list_qdrant_documents():
+def list_qdrant_documents(collection_name: str):
     """Lister tous les documents uniques dans la collection Qdrant."""
     try:
         client, error = get_qdrant_client()
@@ -381,7 +385,7 @@ def list_qdrant_documents():
         
         while True:
             results, offset = client.scroll(
-                collection_name=QDRANT_COLLECTION,
+                collection_name=collection_name,
                 limit=1000,
                 offset=offset,
                 with_payload=["doc_title", "source_file"]
@@ -403,7 +407,7 @@ def list_qdrant_documents():
     except Exception as e:
         return None, str(e)
 
-def add_chunks_to_qdrant(chunks: list, doc_title: str, source_file: str):
+def add_chunks_to_qdrant(chunks: list, doc_title: str, source_file: str, collection_name: str):
     """Ajouter des chunks à Qdrant avec embeddings."""
     try:
         client, error = get_qdrant_client()
@@ -415,7 +419,7 @@ def add_chunks_to_qdrant(chunks: list, doc_title: str, source_file: str):
             return False, "Erreur lors du chargement du modèle d'embedding"
         
         # Obtenir le prochain ID
-        info = client.get_collection(QDRANT_COLLECTION)
+        info = client.get_collection(collection_name)
         start_id = info.points_count
         
         points = []
@@ -438,12 +442,12 @@ def add_chunks_to_qdrant(chunks: list, doc_title: str, source_file: str):
                 )
             )
         
-        client.upsert(collection_name=QDRANT_COLLECTION, points=points)
+        client.upsert(collection_name=collection_name, points=points)
         return True, f"✅ {len(chunks)} chunks ajoutés avec succès (IDs: {start_id} - {start_id + len(chunks) - 1})"
     except Exception as e:
         return False, str(e)
 
-def remove_from_qdrant(removal_type: str, value: str):
+def remove_from_qdrant(removal_type: str, value: str, collection_name: str):
     """Supprimer des documents de Qdrant."""
     try:
         client, error = get_qdrant_client()
@@ -455,7 +459,7 @@ def remove_from_qdrant(removal_type: str, value: str):
         
         while True:
             results, offset = client.scroll(
-                collection_name=QDRANT_COLLECTION,
+                collection_name=collection_name,
                 limit=1000,
                 offset=offset,
                 with_payload=["source_file", "doc_title"]
@@ -478,7 +482,7 @@ def remove_from_qdrant(removal_type: str, value: str):
         if not point_ids:
             return False, f"Aucun document trouvé pour {removal_type}: '{value}'"
         
-        client.delete(collection_name=QDRANT_COLLECTION, points_selector=point_ids)
+        client.delete(collection_name=collection_name, points_selector=point_ids)
         return True, f"✅ {len(point_ids)} chunks supprimés avec succès"
     except Exception as e:
         return False, str(e)
@@ -958,6 +962,33 @@ def render_knowledge_section():
         return
     
     st.success("✅ Connecté à Qdrant")
+
+    # ── Collection selector ──────────────────────────────────────────────────
+    st.markdown(f"""
+    <div style='background: #F0F4F8; border-left: 4px solid {ACCENT_COLOR}; padding: 0.75rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0;'>
+        <span style='color: {PRIMARY_COLOR}; font-weight: bold; font-size: 1rem;'>🗄️ Sélectionner la Collection Qdrant</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    collection_labels = list(QDRANT_COLLECTIONS.values())
+    collection_keys   = list(QDRANT_COLLECTIONS.keys())
+
+    selected_label = st.radio(
+        "Collection cible :",
+        collection_labels,
+        horizontal=True,
+        help="Choisissez dans quelle collection Qdrant les données seront envoyées / consultées."
+    )
+    selected_collection = collection_keys[collection_labels.index(selected_label)]
+
+    st.markdown(
+        f"<div style='background:#E8F5E9; border-radius:6px; padding:0.4rem 0.8rem; display:inline-block; margin-bottom:0.5rem;'>"
+        f"<span style='color:#1B5E20; font-size:0.9rem;'>Collection active : <strong>{selected_collection}</strong></span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+    st.markdown("---")
+    # ────────────────────────────────────────────────────────────────────────
     
     # Sous-onglets pour les opérations sur les connaissances
     kb_tab1, kb_tab2, kb_tab3 = st.tabs([
@@ -968,7 +999,7 @@ def render_knowledge_section():
     with kb_tab1:
         st.subheader("Télécharger un Nouveau Document")
         
-        st.info("📄 Téléchargez des fichiers PDF ou texte pour les ajouter à la base de connaissances via Qdrant")
+        st.info(f"📄 Le document sera indexé dans la collection **{selected_collection}**")
         
         uploaded_file = st.file_uploader(
             "Sélectionner un fichier à télécharger",
@@ -1058,6 +1089,7 @@ def render_knowledge_section():
                 st.json({
                     "titre": title,
                     "fichier_source": file_name,
+                    "collection_qdrant": selected_collection,
                     "total_chunks": len(chunks),
                     "taille_chunk": chunk_size,
                     "chevauchement": overlap,
@@ -1122,8 +1154,8 @@ def render_knowledge_section():
                             # Pour l'instant on continue, mais on affiche l'erreur.
                     
                     # 2. Indexer dans Qdrant
-                    with st.spinner(f"⏳ Génération des embeddings et upload de {len(chunks)} chunks..."):
-                        success_qdrant, message = add_chunks_to_qdrant(chunks, title, file_name)
+                    with st.spinner(f"⏳ Génération des embeddings et upload de {len(chunks)} chunks dans **{selected_collection}**..."):
+                        success_qdrant, message = add_chunks_to_qdrant(chunks, title, file_name, selected_collection)
                     
                     if success_qdrant:
                         st.success(message)
@@ -1135,7 +1167,7 @@ def render_knowledge_section():
     with kb_tab2:
         st.subheader("Supprimer un Document de la Base")
         
-        st.warning("⚠️ Cette action supprimera le document des connaissances du chatbot")
+        st.warning(f"⚠️ Cette action supprimera le document de la collection **{selected_collection}**")
         
         remove_method = st.radio(
             "Supprimer par :",
@@ -1151,7 +1183,7 @@ def render_knowledge_section():
             
             if source_file and st.button("🗑️ Supprimer le Document", use_container_width=True):
                 with st.spinner("Suppression en cours..."):
-                    success, message = remove_from_qdrant("source", source_file)
+                    success, message = remove_from_qdrant("source", source_file, selected_collection)
                 
                 if success:
                     st.success(message)
@@ -1167,7 +1199,7 @@ def render_knowledge_section():
             
             if doc_title and st.button("🗑️ Supprimer le Document", use_container_width=True):
                 with st.spinner("Suppression en cours..."):
-                    success, message = remove_from_qdrant("title", doc_title)
+                    success, message = remove_from_qdrant("title", doc_title, selected_collection)
                 
                 if success:
                     st.success(message)
@@ -1180,7 +1212,7 @@ def render_knowledge_section():
             
             if st.button("🗑️ Supprimer le Point", use_container_width=True):
                 with st.spinner("Suppression en cours..."):
-                    success, message = remove_from_qdrant("id", str(point_id))
+                    success, message = remove_from_qdrant("id", str(point_id), selected_collection)
                 
                 if success:
                     st.success(message)
@@ -1191,6 +1223,7 @@ def render_knowledge_section():
     # ===== VOIR DOCUMENTS =====
     with kb_tab3:
         st.subheader("Documents de la Base de Connaissances")
+        st.caption(f"Collection : **{selected_collection}**")
         
         # Bouton pour rafraîchir
         if st.button("🔄 Rafraîchir la Liste", use_container_width=False):
@@ -1200,7 +1233,7 @@ def render_knowledge_section():
         
         # Récupérer les documents
         with st.spinner("Récupération des documents..."):
-            documents, error = list_qdrant_documents()
+            documents, error = list_qdrant_documents(selected_collection)
         
         if error:
             st.error(f"❌ Erreur : {error}")
@@ -1223,7 +1256,7 @@ def render_knowledge_section():
             st.markdown("---")
             
             # Statistiques
-            stats, stats_error = get_qdrant_stats()
+            stats, stats_error = get_qdrant_stats(selected_collection)
             
             col1, col2, col3 = st.columns(3)
             with col1:
